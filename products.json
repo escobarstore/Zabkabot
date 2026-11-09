@@ -1,0 +1,206 @@
+[
+  {
+    "id": 1,
+    "name": "WEED MOONROCK",
+    "price": 60,
+    "description": "🌕 Moon Rock to specjalnie przygotowany produkt z konopi 🌿 n\nSkłada się z suszu pokrytego koncentratem i warstwą kiefu ✨, n\ndzięki czemu zawiera bardzo wysokie stężenie THC. Aromat jest intensywny 🌲, n\nz wyraźnymi nutami ziołowymi, żywicznymi, a czasem także słodkimi 🍯 lub cytrusowymi 🍊. n\nEfekt jest znacznie silniejszy niż w przypadku zwykłego suszu 😶‍🌫️ – wywołuje głębokie odprężenie, n\nintensywną euforię oraz potężną zmianę percepcji. n\nTHC: high 🐸 Odkryj coś nowego w Żabka shop!.",
+    "image": "images/produkt-1.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 240 
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 420
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "WEED BOMBERY GLUE",
+    "price": 50,
+    "description": "🌳 Bomberry Glue Auto to hybryda konopi stworzona ze skrzyżowania Blueberry Auto i Gorilla Bomb,n\nznanej z bogatego 🍓jagodowego aromatu ze słodkimi nutami, czekoladą 🍫 i lekkimi akcentami diesla. n\nDziałanie jest silne: początkowo odczuwa się przyjemny zastrzyk energii i pobudzenie umysłowe, n\npo którym stopniowo pojawia się wyraźne rozluźnienie organizmu 😌. Początkujący powinni zachować ostrożność ze względu na wysoką zawartość THC. n\nTHC: 25% n\nindica: 60% n\nsativa: 40% n\n🐸 Wypróbuj nowość na ladzie Żabka shop!.",
+    "image": "images/produkt-2.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 200
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 360
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "WEED GELATO",
+    "price": 50,
+    "description": " 🌳 Gelato to zrównoważona hybryda, łącząca relaks i euforię w idealnych proporcjach. 🍨 Delikatnie uspokaja, ale nie „przygniata”, n\ndaje uczucie szczęścia i spokoju bez utraty jasności umysłu. Aromat słodki, z nutami wanilii, jagód i kremu 🍓, n\nz lekką cytrusową kwaskowatością. Odpowiedni na wieczorny relaks lub twórcze zajęcia w spokojnej atmosferze. 🌙 n\nTHC: 25% n\nindica: 55% n\nsativa: 45% n\n🐸 Tylko najlepsze odmiany dla Ciebie w Żabka shop!.",
+    "image": "images/produkt-03.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 200
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 360
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Produkt 04 — uzupełnij nazwę",
+    "price": 10.0,
+    "description": "Uzupełnij opis produktu.",
+    "image": "images/produkt-04.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 9.0
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 8.0
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Produkt 05 — uzupełnij nazwę",
+    "price": 10.0,
+    "description": "Uzupełnij opis produktu.",
+    "image": "images/produkt-05.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 9.0
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 8.0
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "name": "Produkt 06 — uzupełnij nazwę",
+    "price": 10.0,
+    "description": "Uzupełnij opis produktu.",
+    "image": "images/produkt-06.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 9.0
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 8.0
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "name": "Produkt 07 — uzupełnij nazwę",
+    "price": 10.0,
+    "description": "Uzupełnij opis produktu.",
+    "image": "images/produkt-07.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 9.0
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 8.0
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "name": "Produkt 08 — uzupełnij nazwę",
+    "price": 10.0,
+    "description": "Uzupełnij opis produktu.",
+    "image": "images/produkt-08.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 9.0
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 8.0
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "name": "Produkt 09 — uzupełnij nazwę",
+    "price": 10.0,
+    "description": "Uzupełnij opis produktu.",
+    "image": "images/produkt-09.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 9.0
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 8.0
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "name": "Produkt 10 — uzupełnij nazwę",
+    "price": 10.0,
+    "description": "Uzupełnij opis produktu.",
+    "image": "images/produkt-10.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 9.0
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 8.0
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "name": "Produkt 11 — uzupełnij nazwę",
+    "price": 10.0,
+    "description": "Uzupełnij opis produktu.",
+    "image": "images/produkt-11.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 9.0
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 8.0
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "name": "Produkt 12 — uzupełnij nazwę",
+    "price": 10.0,
+    "description": "Uzupełnij opis produktu.",
+    "image": "images/produkt-12.jpg",
+    "price_tiers": [
+      {
+        "min_qty": 5,
+        "unit_price": 9.0
+      },
+      {
+        "min_qty": 10,
+        "unit_price": 8.0
+      }
+    ]
+  }
+]
