@@ -1,244 +1,276 @@
-import json
-import logging
 import os
 from pathlib import Path
-
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+)
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, ContextTypes
 )
 
-TOKEN = os.environ["BOT_TOKEN"]
-SHOP_NAME = os.getenv("SHOP_NAME", "Mój sklep")
-CURRENCY = os.getenv("CURRENCY", "PLN")
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "").strip().lstrip("@")
-
-ROOT = Path(__file__).resolve().parent
-PRODUCTS_PATH = ROOT / "products.json"
-
 logging.basicConfig(
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
 )
 log = logging.getLogger(__name__)
 
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "").strip().lstrip("@")
+PRODUCTS_FILE = Path(__file__).with_name("products.json")
+IMAGE_DIR = Path(__file__).with_name("images")
+
 
 def load_products():
-    with PRODUCTS_PATH.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    if not PRODUCTS_FILE.exists():
+        raise FileNotFoundError("Brak pliku products.json obok bot.py")
+    data = json.loads(PRODUCTS_FILE.read_text(encoding="utf-8"))
+    if not isinstance(data, list):
+        raise ValueError("products.json musi zawierać listę produktów")
+    for i, product in enumerate(data):
+        product.setdefault("id", str(i + 1))
+        product.setdefault("name", f"Produkt {i + 1}")
+        product.setdefault("price", 0)
+        product.setdefault("description", "")
+        product.setdefault("image", "")
+        product.setdefault("price_tiers", [])
+    return data
 
 
-def product_by_id(pid):
-    return next((p for p in load_products() if str(p["id"]) == str(pid)), None)
+PRODUCTS = load_products()
+PRODUCT_BY_ID = {str(p["id"]): p for p in PRODUCTS}
 
 
 def unit_price(product, quantity):
-    """Use the best matching quantity tier; tiers are minimum quantities."""
-    price = float(product["price"])
-    for tier in sorted(product.get("price_tiers", []), key=lambda x: int(x["min_qty"])):
-        if quantity >= int(tier["min_qty"]):
-            price = float(tier["unit_price"])
+    """Zwraca cenę jednostkową dla ilości danego produktu."""
+    price = float(product.get("price", 0))
+    tiers = sorted(
+        product.get("price_tiers", []),
+        key=lambda item: int(item.get("min_qty", 1))
+    )
+    for tier in tiers:
+        if quantity >= int(tier.get("min_qty", 1)):
+            price = float(tier.get("unit_price", price))
     return price
 
 
 def money(value):
-    return f"{value:.2f} {CURRENCY}"
+    return f"{value:.2f}".replace(".", ",") + " zł"
 
 
-def main_menu():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🛍️ Otwórz katalog", callback_data="catalog")]
-    ])
+def product_text(product, quantity):
+    price = unit_price(product, quantity)
+    total = price * quantity
+    lines = [
+        f"<b>{product['name']}</b>",
+        "",
+        product.get("description", ""),
+        "",
+        f"Cena za sztukę: <b>{money(price)}</b>",
+        f"Ilość: <b>{quantity}</b>",
+        f"Wartość: <b>{money(total)}</b>",
+    ]
+    return "\n".join(line for line in lines if line is not None)
 
 
-def catalog_markup():
+def catalog_keyboard():
     rows = []
-    for p in load_products():
+    for product in PRODUCTS:
         rows.append([InlineKeyboardButton(
-            f'{p["name"]} — od {money(float(p["price"]))}/szt.',
-            callback_data=f'product:{p["id"]}'
+            str(product["name"])[:60],
+            callback_data=f"product:{product['id']}"
         )])
-    rows.append([InlineKeyboardButton("🧺 Mój koszyk", callback_data="cart")])
-    return Inlineline(rows)
-
-
-def Inlineline(rows):
+    rows.append([InlineKeyboardButton("🛒 Koszyk", callback_data="cart")])
     return InlineKeyboardMarkup(rows)
 
 
-def product_markup(product, qty):
-    pid = product["id"]
+def product_keyboard(product_id, quantity):
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("➖", callback_data=f"qty:{pid}:{max(1, qty-1)}"),
-            InlineKeyboardButton(f"Ilość: {qty}", callback_data="noop"),
-            InlineKeyboardButton("➕", callback_data=f"qty:{pid}:{qty+1}"),
+            InlineKeyboardButton("−", callback_data=f"qty:{product_id}:{max(1, quantity-1)}"),
+            InlineKeyboardButton(str(quantity), callback_data="noop"),
+            InlineKeyboardButton("+", callback_data=f"qty:{product_id}:{min(999, quantity+1)}"),
         ],
-        [InlineKeyboardButton(
-            f"Dodaj do koszyka · {money(unit_price(product, qty) * qty)}",
-            callback_data=f"add:{pid}:{qty}"
-        )],
-        [InlineKeyboardButton("⬅️ Katalog", callback_data="catalog"),
-         InlineKeyboardButton("🧺 Koszyk", callback_data="cart")],
+        [InlineKeyboardButton("🛒 Dodaj do koszyka", callback_data=f"add:{product_id}:{quantity}")],
+        [InlineKeyboardButton("⬅️ Wróć do katalogu", callback_data="catalog")],
+        [InlineKeyboardButton("🛒 Zobacz koszyk", callback_data="cart")],
     ])
+
+
+def cart_keyboard(cart):
+    rows = []
+    for product_id, quantity in cart.items():
+        product = PRODUCT_BY_ID.get(str(product_id))
+        if product:
+            rows.append([InlineKeyboardButton(
+                f"✏️ {product['name'][:32]} ({quantity} szt.)",
+                callback_data=f"product:{product_id}"
+            )])
+    rows.extend([
+        [InlineKeyboardButton("🧹 Wyczyść koszyk", callback_data="clear_cart")],
+        [InlineKeyboardButton("⬅️ Katalog", callback_data="catalog")],
+    ])
+    if ADMIN_USERNAME:
+        rows.append([InlineKeyboardButton(
+            "Kontakt z administratorem",
+            url=f"https://t.me/{ADMIN_USERNAME}"
+        )])
+    return InlineKeyboardMarkup(rows)
 
 
 def cart_text(cart):
     if not cart:
-        return "Twój koszyk jest pusty."
-    lines = ["🧺 **Twój koszyk**", ""]
+        return "<b>Twój koszyk jest pusty.</b>"
+    lines = ["<b>🛒 Twój koszyk</b>", ""]
     total = 0.0
-    for pid, qty in cart.items():
-        p = product_by_id(pid)
-        if not p:
+    for product_id, quantity in cart.items():
+        product = PRODUCT_BY_ID.get(str(product_id))
+        if not product:
             continue
-        price = unit_price(p, qty)
-        subtotal = price * qty
+        price = unit_price(product, quantity)
+        subtotal = price * quantity
         total += subtotal
-        lines.append(f'• {p["name"]} — {qty} szt. × {money(price)} = {money(subtotal)}')
-    lines += ["", f"**Razem: {money(total)}**"]
+        lines.append(
+            f"• {product['name']} — {quantity} × {money(price)} = <b>{money(subtotal)}</b>"
+        )
+    lines.extend(["", f"<b>Razem: {money(total)}</b>"])
     return "\n".join(lines)
 
 
-def cart_markup(cart):
-    rows = []
-    for pid, qty in cart.items():
-        p = product_by_id(pid)
-        if p:
-            rows.append([
-                InlineKeyboardButton(f'➖ {p["name"]}', callback_data=f"cartdec:{pid}"),
-                InlineKeyboardButton(f"{qty} szt.", callback_data="noop"),
-                InlineKeyboardButton("➕", callback_data=f"cartinc:{pid}"),
-                InlineKeyboardButton("✖️", callback_data=f"cartremove:{pid}"),
-            ])
-    rows.extend([
-        [InlineKeyboardButton("➕ Dodaj kolejny produkt", callback_data="catalog")],
-        [InlineKeyboardButton("Przejdź dalej", callback_data="checkout")],
-        [InlineKeyboardButton("Wyczyść koszyk", callback_data="cartclear")],
-    ])
-    return InlineKeyboardMarkup(rows)
+async def show_catalog(query):
+    await query.edit_message_text(
+        "<b>Wybierz produkt z katalogu:</b>",
+        reply_markup=catalog_keyboard(),
+        parse_mode="HTML"
+    )
+
+
+async def show_product(query, context, product_id, quantity=None):
+    product = PRODUCT_BY_ID.get(str(product_id))
+    if not product:
+        await query.answer("Nie znaleziono produktu.", show_alert=True)
+        return
+
+    if quantity is None:
+        quantity = int(context.user_data.get(f"qty_{product_id}", 1))
+    quantity = max(1, min(999, int(quantity)))
+    context.user_data[f"qty_{product_id}"] = quantity
+
+    text = product_text(product, quantity)
+    keyboard = product_keyboard(product_id, quantity)
+    image_value = str(product.get("image", "")).strip()
+    image_path = IMAGE_DIR / image_value if image_value else None
+    has_image = bool(image_path and image_path.is_file())
+
+    message = query.message
+    is_photo = bool(message.photo)
+
+    try:
+        if has_image:
+            if is_photo:
+                with image_path.open("rb") as photo:
+                    await query.edit_message_media(
+                        media=InputMediaPhoto(
+                            media=photo, caption=text, parse_mode="HTML"
+                        ),
+                        reply_markup=keyboard
+                    )
+            else:
+                # Gdy poprzednia wiadomość była tekstowa, usuń ją i wyślij kartę ze zdjęciem.
+                await message.delete()
+                with image_path.open("rb") as photo:
+                    await context.bot.send_photo(
+                        chat_id=query.message.chat_id,
+                        photo=photo,
+                        caption=text,
+                        parse_mode="HTML",
+                        reply_markup=keyboard
+                    )
+        else:
+            if is_photo:
+                await query.edit_message_caption(
+                    caption=text,
+                    parse_mode="HTML",
+                    reply_markup=keyboard
+                )
+            else:
+                await query.edit_message_text(
+                    text=text,
+                    parse_mode="HTML",
+                    reply_markup=keyboard
+                )
+    except Exception:
+        log.exception("Nie udało się wyświetlić produktu %s", product_id)
+        await query.answer("Nie udało się odświeżyć karty produktu.", show_alert=True)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.setdefault("cart", {})
     await update.message.reply_text(
-        f"Witaj w {SHOP_NAME}!\nZobacz katalog produktów i dodaj wybrane pozycje do koszyka.",
-        reply_markup=main_menu(),
+        "<b>Witamy w naszym sklepie!</b>\nWybierz katalog, aby zobaczyć produkty.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🛍 Otwórz katalog", callback_data="catalog")],
+            [InlineKeyboardButton("🛒 Koszyk", callback_data="cart")],
+        ])
     )
 
 
-async def show_product(query, context, pid, qty=None):
-    p = product_by_id(pid)
-    if not p:
-        await query.message.reply_text("Nie znaleziono tego produktu.")
-        return
-    if qty is None:
-        qty = context.user_data.setdefault("product_qty", {}).get(str(pid), 1)
-    qty = max(1, min(int(qty), 99))
-    context.user_data.setdefault("product_qty", {})[str(pid)] = qty
-
-    tiers = p.get("price_tiers", [])
-    tier_text = ""
-    if tiers:
-        tier_lines = [f'{t["min_qty"]}+ szt. — {money(float(t["unit_price"]))}/szt.' for t in tiers]
-        tier_text = "\n\nCennik ilościowy:\n" + "\n".join(tier_lines)
-
-    text = (
-        f'**{p["name"]}**\n\n{p.get("description", "")}\n\n'
-        f'Cena dla {qty} szt.: {money(unit_price(p, qty))}/szt. '
-        f'(razem {money(unit_price(p, qty) * qty)}){tier_text}'
-    )
-    markup = product_markup(p, qty)
-    image_name = p.get("image", "")
-    image_path = (ROOT / image_name).resolve() if image_name else None
-    if image_path and ROOT.resolve() in image_path.parents and image_path.is_file():
-        with image_path.open("rb") as photo:
-            await query.message.reply_photo(
-                photo=photo, caption=text, parse_mode="Markdown", reply_markup=markup
-            )
-    else:
-        await query.message.reply_text(text, parse_mode="Markdown", reply_markup=markup)
-
-
-async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    data = q.data or ""
+async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
     cart = context.user_data.setdefault("cart", {})
 
     if data == "noop":
         return
     if data == "catalog":
-        await q.message.reply_text("Wybierz produkt:", reply_markup=catalog_markup())
-    elif data.startswith("product:"):
-        await show_product(q, context, data.split(":")[1])
-    elif data.startswith("qty:"):
-        _, pid, qty = data.split(":")
-        await show_product(q, context, pid, int(qty))
-    elif data.startswith("add:"):
-        _, pid, qty = data.split(":")
-        cart[pid] = cart.get(pid, 0) + int(qty)
-        p = product_by_id(pid)
-        await q.message.reply_text(
-            f'Dodano do koszyka: {p["name"]} — {qty} szt.',
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🧺 Zobacz koszyk", callback_data="cart")],
-                [InlineKeyboardButton("Kontynuuj zakupy", callback_data="catalog")],
-            ])
+        await show_catalog(query)
+        return
+    if data == "cart":
+        await query.edit_message_text(
+            cart_text(cart),
+            parse_mode="HTML",
+            reply_markup=cart_keyboard(cart)
         )
-    elif data == "cart":
-        await q.message.reply_text(
-            cart_text(cart), parse_mode="Markdown", reply_markup=cart_markup(cart)
-        )
-    elif data.startswith("cartinc:"):
-        pid = data.split(":")[1]
-        cart[pid] = cart.get(pid, 0) + 1
-        await q.message.reply_text(cart_text(cart), parse_mode="Markdown", reply_markup=cart_markup(cart))
-    elif data.startswith("cartdec:"):
-        pid = data.split(":")[1]
-        cart[pid] = max(0, cart.get(pid, 0) - 1)
-        if cart[pid] == 0:
-            cart.pop(pid, None)
-        await q.message.reply_text(cart_text(cart), parse_mode="Markdown", reply_markup=cart_markup(cart))
-    elif data.startswith("cartremove:"):
-        cart.pop(data.split(":")[1], None)
-        await q.message.reply_text(cart_text(cart), parse_mode="Markdown", reply_markup=cart_markup(cart))
-    elif data == "cartclear":
+        return
+    if data == "clear_cart":
         cart.clear()
-        await q.message.reply_text("Koszyk został wyczyszczony.", reply_markup=main_menu())
-    elif data == "checkout":
-        if not cart:
-            await q.message.reply_text("Koszyk jest pusty. Najpierw wybierz produkt.")
+        await query.edit_message_text(
+            cart_text(cart),
+            parse_mode="HTML",
+            reply_markup=cart_keyboard(cart)
+        )
+        return
+    if data.startswith("product:"):
+        product_id = data.split(":", 1)[1]
+        await show_product(query, context, product_id)
+        return
+    if data.startswith("qty:"):
+        _, product_id, quantity = data.split(":")
+        await show_product(query, context, product_id, int(quantity))
+        return
+    if data.startswith("add:"):
+        _, product_id, quantity = data.split(":")
+        if product_id not in PRODUCT_BY_ID:
+            await query.answer("Nie znaleziono produktu.", show_alert=True)
             return
-        summary = cart_text(cart)
-        if ADMIN_USERNAME:
-            keyboard = InlineKeyboardMarkup([[
-                InlineKeyboardButton("Skontaktuj się z administratorem", url=f"https://t.me/{ADMIN_USERNAME}")
-            ]])
-            await q.message.reply_text(
-                summary + "\n\nTo jest podsumowanie katalogowe, nie potwierdzenie płatności ani zamówienia. "
-                "Aby uzgodnić dalsze kroki, skontaktuj się z administratorem.",
-                parse_mode="Markdown",
-                reply_markup=keyboard,
-            )
-        else:
-            await q.message.reply_text(
-                summary + "\n\nUstaw ADMIN_USERNAME w Railway, aby dodać przycisk kontaktu.",
-                parse_mode="Markdown",
-            )
-
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Wpisz /start, aby otworzyć katalog.")
+        cart[product_id] = int(cart.get(product_id, 0)) + int(quantity)
+        await query.edit_message_text(
+            f"✅ Dodano <b>{quantity} szt.</b> produktu "
+            f"<b>{PRODUCT_BY_ID[product_id]['name']}</b> do koszyka.\n\n"
+            + cart_text(cart),
+            parse_mode="HTML",
+            reply_markup=cart_keyboard(cart)
+        )
+        return
 
 
 def main():
-    app = Application.builder().token(TOKEN).build()
+    if not BOT_TOKEN:
+        raise RuntimeError("Brak zmiennej środowiskowej BOT_TOKEN w Railway.")
+    app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CallbackQueryHandler(callback))
-    log.info("Starting catalogue bot")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.add_handler(CallbackQueryHandler(on_button))
+    log.info("Bot uruchomiony. Liczba produktów: %s", len(PRODUCTS))
+    app.run_polling()
 
 
 if __name__ == "__main__":
